@@ -73,8 +73,9 @@ namespace SteveCadwallader.CodeMaid.Logic.Cleaning
             // Capture all existing using statements that should be re-inserted if removed.
             const string patternFormat = @"^[ \t]*{0}[ \t]*\r?\n";
 
-            var usingStatementsToReinsert = _usingStatementsToReinsertWhenRemoved.Value
-                .Where(usingStatement => TextDocumentHelper.FirstOrDefaultMatch(textDocument, string.Format(patternFormat, usingStatement)) != null)
+            var points = _usingStatementsToReinsertWhenRemoved.Value
+                .Select(usingStatement => new { statement = usingStatement, point = TextDocumentHelper.FirstOrDefaultMatch(textDocument, string.Format(patternFormat, usingStatement)) })
+                .Where(p => TextDocumentHelper.FirstOrDefaultMatch(textDocument, string.Format(patternFormat, p.statement)) != null)
                 .ToList();
 
             if (_package.IDEVersion >= 15)
@@ -87,18 +88,17 @@ namespace SteveCadwallader.CodeMaid.Logic.Cleaning
             }
 
             // Ignore any using statements that are still referenced
-            usingStatementsToReinsert = usingStatementsToReinsert
-                 .Where(usingStatement => TextDocumentHelper.FirstOrDefaultMatch(textDocument, string.Format(patternFormat, usingStatement)) == null)
+            points = points
+                 .Where(p => TextDocumentHelper.FirstOrDefaultMatch(textDocument, string.Format(patternFormat, p.statement)) == null)
                  .ToList();
 
-            if (usingStatementsToReinsert.Count > 0)
+            if (points.Count > 0)
             {
-                var point = textDocument.StartPoint.CreateEditPoint();
-
-                foreach (string usingStatement in usingStatementsToReinsert)
+                foreach (var p in points)
                 {
+                    var point = p.point;
                     point.StartOfLine();
-                    point.Insert(usingStatement);
+                    point.Insert(p.statement);
                     point.Insert(Environment.NewLine);
                 }
 
